@@ -1120,29 +1120,32 @@ var JpxImage = (function JpxImageClosure() {
             // building inclusion and zero bit-planes trees
             var width = precinct.cbxMax - precinct.cbxMin + 1;
             var height = precinct.cbyMax - precinct.cbyMin + 1;
-            inclusionTree = new InclusionTree(width, height, layerNumber);
+            inclusionTree = new InclusionTree(width, height);
             zeroBitPlanesTree = new TagTree(width, height);
             precinct.inclusionTree = inclusionTree;
             precinct.zeroBitPlanesTree = zeroBitPlanesTree;
-            for (var l=0; l < layerNumber; l++) {
-              if (readBits(1) !== 0) {
-                throw new Error('JPX Error: Invalid tag tree');
-              }
-            }
           }
 
-          if (inclusionTree.reset(codeblockColumn, codeblockRow, layerNumber)) {
-            while (true) {
+          inclusionTree.reset(codeblockColumn, codeblockRow, layerNumber);
+          while (true) {
+            if (inclusionTree.isKnownOrAboveThreshold()) {
+              if ( inclusionTree.isLeaf() ) {
+                break;
+              } else {
+                inclusionTree.nextLevel();
+              }
+            } else {
               if (readBits(1)) {
-                valueReady = !inclusionTree.nextLevel();
-                if (valueReady) {
+                inclusionTree.setKnown();
+                if (inclusionTree.isLeaf()) {
                   codeblock.included = true;
                   codeblockIncluded = firstTimeInclusion = true;
                   break;
+                } else {
+                  inclusionTree.nextLevel();
                 }
               } else {
-                inclusionTree.incrementValue(layerNumber);
-                break;
+                inclusionTree.incrementValue();
               }
             }
           }
@@ -1562,19 +1565,22 @@ var JpxImage = (function JpxImageClosure() {
   })();
 
   var InclusionTree = (function InclusionTreeClosure() {
-    function InclusionTree(width, height,  defaultValue) {
+    function InclusionTree(width, height) {
       var levelsLength = log2(Math.max(width, height)) + 1;
       this.levels = [];
       for (var i = 0; i < levelsLength; i++) {
-        var items = new Int16Array(width * height);
+        var items = new Uint8Array(width * height);
+        var status = new Uint8Array(width * height);
         for (var j = 0, jj = items.length; j < jj; j++) {
-          items[j] = defaultValue;
+          items[j] = 0;
+          status[j] = 0;
         }
 
         var level = {
           width: width,
           height: height,
-          items: items
+          items: items,
+          status: status
         };
         this.levels.push(level);
 
@@ -1584,60 +1590,65 @@ var JpxImage = (function JpxImageClosure() {
     }
     InclusionTree.prototype = {
       reset: function InclusionTree_reset(i, j, stopValue) {
+        this.currentStopValue = stopValue;
         var currentLevel = 0;
         while (currentLevel < this.levels.length) {
           var level = this.levels[currentLevel];
           var index = i + j * level.width;
           level.index = index;
-          var value = level.items[index];
-
-          if (value === 0xFF) {
-            break;
-          }
-
-          if (value > stopValue) {
-            this.currentLevel = currentLevel;
-            // already know about this one, propagating the value to top levels
-            this.propagateValues();
-            return false;
-          }
 
           i >>= 1;
           j >>= 1;
           currentLevel++;
         }
-        this.currentLevel = currentLevel - 1;
-        return true;
+
+        this.currentLevel = this.levels.length - 1;
+        this.propagateValues();
+        return;
       },
-      incrementValue: function InclusionTree_incrementValue(stopValue) {
+      incrementValue: function InclusionTree_incrementValue() {
         var level = this.levels[this.currentLevel];
-        level.items[level.index] = stopValue + 1;
+        level.items[level.index] = level.items[level.index] + 1;
         this.propagateValues();
       },
       propagateValues: function InclusionTree_propagateValues() {
         var levelIndex = this.currentLevel;
         var level = this.levels[levelIndex];
-        var currentValue = level.items[level.index];
+        var min = level.items[level.index];
         while (--levelIndex >= 0) {
           level = this.levels[levelIndex];
-          level.items[level.index] = currentValue;
+          if (level.items[level.index] < min) {
+            level.items[level.index] = min;
+          } else if ( level.items[level.index] > min) {
+            min = level.items[level.index];
+          }
         }
       },
       nextLevel: function InclusionTree_nextLevel() {
         var currentLevel = this.currentLevel;
-        var level = this.levels[currentLevel];
-        var value = level.items[level.index];
-        level.items[level.index] = 0xFF;
         currentLevel--;
         if (currentLevel < 0) {
           return false;
+        } else {
+          this.currentLevel = currentLevel;
+          return true;
         }
+      },
+    isLeaf: function InclusionTree_isLeaf(){
+      return (this.currentLevel === 0);
+    },
+    isKnownOrAboveThreshold: function InclusionTree_isKnownOrAboveThreshold(){
+      var levelindex = this.currentLevel;
+      var level = this.levels[levelindex];
+      return (level.status[level.index] > 0 || (level.items[level.index] > this.currentStopValue) );
+    },
+    setKnown: function InclusionTree_setKnown(){
+      var levelindex = this.currentLevel;
+      var level = this.levels[levelindex];
+      level.status[level.index] = 1;
+      return;
+    }
 
-        this.currentLevel = currentLevel;
-        level = this.levels[currentLevel];
-        level.items[level.index] = value;
-        return true;
-      }
     };
     return InclusionTree;
   })();
