@@ -1128,25 +1128,24 @@ var JpxImage = (function JpxImageClosure() {
 
           inclusionTree.reset(codeblockColumn, codeblockRow, layerNumber);
           while (true) {
-            if (inclusionTree.isKnownOrAboveThreshold()) {
-              if ( inclusionTree.isLeaf() ) {
+            if (inclusionTree.isAboveThreshold()){
+              break;
+            }
+            if (inclusionTree.isKnown()) {
+                inclusionTree.nextLevel();
+                continue;
+            }
+            if (readBits(1)) {
+              inclusionTree.setKnown();
+              if (inclusionTree.isLeaf()) {
+                codeblock.included = true;
+                codeblockIncluded = firstTimeInclusion = true;
                 break;
               } else {
                 inclusionTree.nextLevel();
               }
             } else {
-              if (readBits(1)) {
-                inclusionTree.setKnown();
-                if (inclusionTree.isLeaf()) {
-                  codeblock.included = true;
-                  codeblockIncluded = firstTimeInclusion = true;
-                  break;
-                } else {
-                  inclusionTree.nextLevel();
-                }
-              } else {
-                inclusionTree.incrementValue();
-              }
+              inclusionTree.incrementValue();
             }
           }
         }
@@ -1603,25 +1602,14 @@ var JpxImage = (function JpxImageClosure() {
         }
 
         this.currentLevel = this.levels.length - 1;
-        this.propagateValues();
+        this.minValue =this.levels[this.currentLevel].items[0];
         return;
       },
       incrementValue: function InclusionTree_incrementValue() {
         var level = this.levels[this.currentLevel];
         level.items[level.index] = level.items[level.index] + 1;
-        this.propagateValues();
-      },
-      propagateValues: function InclusionTree_propagateValues() {
-        var levelIndex = this.currentLevel;
-        var level = this.levels[levelIndex];
-        var min = level.items[level.index];
-        while (--levelIndex >= 0) {
-          level = this.levels[levelIndex];
-          if (level.items[level.index] < min) {
-            level.items[level.index] = min;
-          } else if ( level.items[level.index] > min) {
-            min = level.items[level.index];
-          }
+        if(level.items[level.index] > this.minValue) {
+          this.minValue = level.items[level.index];
         }
       },
       nextLevel: function InclusionTree_nextLevel() {
@@ -1631,16 +1619,27 @@ var JpxImage = (function JpxImageClosure() {
           return false;
         } else {
           this.currentLevel = currentLevel;
+          var level = this.levels[currentLevel];
+          if(level.items[level.index] < this.minValue) {
+            level.items[level.index] = this.minValue;
+          }else if (level.items[level.index] > this.minValue) {
+            this.minValue = level.items[level.index];
+          }
           return true;
         }
       },
     isLeaf: function InclusionTree_isLeaf(){
       return (this.currentLevel === 0);
     },
-    isKnownOrAboveThreshold: function InclusionTree_isKnownOrAboveThreshold(){
+    isAboveThreshold: function InclusionTree_isAboveThreshold(){
       var levelindex = this.currentLevel;
       var level = this.levels[levelindex];
-      return (level.status[level.index] > 0 || (level.items[level.index] > this.currentStopValue) );
+      return (level.items[level.index] > this.currentStopValue);
+    },
+    isKnown: function InclusionTree_isKnown(){
+      var levelindex = this.currentLevel;
+      var level = this.levels[levelindex];
+      return (level.status[level.index] > 0);
     },
     setKnown: function InclusionTree_setKnown(){
       var levelindex = this.currentLevel;
