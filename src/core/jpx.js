@@ -1128,6 +1128,9 @@ var JpxImage = (function JpxImageClosure() {
 
           inclusionTree.reset(codeblockColumn, codeblockRow, layerNumber);
           while (true) {
+            if (position >= data.length) {
+              return;
+            }
             if (inclusionTree.isAboveThreshold()){
               break;
             }
@@ -1156,6 +1159,9 @@ var JpxImage = (function JpxImageClosure() {
           zeroBitPlanesTree = precinct.zeroBitPlanesTree;
           zeroBitPlanesTree.reset(codeblockColumn, codeblockRow);
           while (true) {
+            if (position >= data.length) {
+              return;
+            }
             if (readBits(1)) {
               valueReady = !zeroBitPlanesTree.nextLevel();
               if (valueReady) {
