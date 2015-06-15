@@ -1391,7 +1391,12 @@ var JpxImage = (function JpxImageClosure() {
         transformedTiles[c] = transformTile(context, tile, c);
       }
       var tile0 = transformedTiles[0];
-      var out = new Int16Array(tile0.items.length * componentsCount);
+      var isSigned = components[0].isSigned;
+      if (isSigned) {
+        var out = new Int16Array(tile0.items.length * componentsCount);
+      } else {
+        var out = new Uint16Array(tile0.items.length * componentsCount);
+      }
       var result = {
         left: tile0.left,
         top: tile0.top,
