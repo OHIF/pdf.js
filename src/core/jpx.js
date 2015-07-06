@@ -1479,17 +1479,19 @@ var JpxImage = (function JpxImageClosure() {
             var items = transformedTiles[c].items;
 
             if(isSigned){
-              shift = 0;
-              offset = 0;
+              for (pos = c, j = 0, jj = items.length; j < jj; j++) {
+                out[pos] = items[j];
+                pos += componentsCount;
+              }
             }else{
               shift = components[c].precision - 8;
               offset = (128 << shift) + 0.5;
-            }
-
-            for (pos = c, j = 0, jj = items.length; j < jj; j++) {
-              val = items[j];
-              out[pos] = (val + offset);
-              pos += componentsCount;
+              var precisionMax = Math.pow(2,components[c].precision)-1;
+              for (pos = c, j = 0, jj = items.length; j < jj; j++) {
+                val = items[j];
+                out[pos] = Math.max(Math.min((val + offset),precisionMax),0);
+                pos += componentsCount;
+              }
             }
           }
         }
