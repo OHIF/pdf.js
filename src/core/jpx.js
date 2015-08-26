@@ -1022,6 +1022,9 @@ var JpxImage = (function JpxImageClosure() {
     var buffer, bufferSize = 0, skipNextBit = false;
     function readBits(count) {
       while (bufferSize < count) {
+        if(offset + position  >= data.length){
+          throw new Error("Unexpected EOF");
+        }
         var b = data[offset + position];
         position++;
         if (skipNextBit) {
@@ -1085,126 +1088,130 @@ var JpxImage = (function JpxImageClosure() {
     var ephMarkerUsed = context.COD.ephMarkerUsed;
     var packetsIterator = tile.packetsIterator;
     while (position < dataLength) {
-      alignToByte();
-      if (sopMarkerUsed && skipMarkerIfEqual(0x91)) {
-        // Skip also marker segment length and packet sequence ID
-        skipBytes(4);
-      }
-      var packet = packetsIterator.nextPacket();
-      if (packet === undefined) {
-        //No more packets. Stream is probably truncated.
-        return;
-      }
-      if (!readBits(1)) {
-        continue;
-      }
-      var layerNumber = packet.layerNumber;
-      var queue = [], codeblock;
-      for (var i = 0, ii = packet.codeblocks.length; i < ii; i++) {
-        codeblock = packet.codeblocks[i];
-        var precinct = codeblock.precinct;
-        var codeblockColumn = codeblock.cbx - precinct.cbxMin;
-        var codeblockRow = codeblock.cby - precinct.cbyMin;
-        var codeblockIncluded = false;
-        var firstTimeInclusion = false;
-        var valueReady;
-        if (codeblock['included'] !== undefined) {
-          codeblockIncluded = !!readBits(1);
-        } else {
-          // reading inclusion tree
-          precinct = codeblock.precinct;
-          var inclusionTree, zeroBitPlanesTree;
-          if (precinct['inclusionTree'] !== undefined) {
-            inclusionTree = precinct.inclusionTree;
-          } else {
-            // building inclusion and zero bit-planes trees
-            var width = precinct.cbxMax - precinct.cbxMin + 1;
-            var height = precinct.cbyMax - precinct.cbyMin + 1;
-            inclusionTree = new InclusionTree(width, height);
-            zeroBitPlanesTree = new TagTree(width, height);
-            precinct.inclusionTree = inclusionTree;
-            precinct.zeroBitPlanesTree = zeroBitPlanesTree;
-          }
-
-          inclusionTree.reset(codeblockColumn, codeblockRow, layerNumber);
-          while (true) {
-            if (position >= data.length) {
-              return;
-            }
-            if (inclusionTree.isAboveThreshold()){
-              break;
-            }
-            if (inclusionTree.isKnown()) {
-                inclusionTree.nextLevel();
-                continue;
-            }
-            if (readBits(1)) {
-              inclusionTree.setKnown();
-              if (inclusionTree.isLeaf()) {
-                codeblock.included = true;
-                codeblockIncluded = firstTimeInclusion = true;
-                break;
-              } else {
-                inclusionTree.nextLevel();
-              }
-            } else {
-              inclusionTree.incrementValue();
-            }
-          }
+      try{
+        alignToByte();
+        if (sopMarkerUsed && skipMarkerIfEqual(0x91)) {
+          // Skip also marker segment length and packet sequence ID
+          skipBytes(4);
         }
-        if (!codeblockIncluded) {
+        var packet = packetsIterator.nextPacket();
+        if (packet === undefined) {
+          //No more packets. Stream is probably truncated.
+          return;
+        }
+        if (!readBits(1)) {
           continue;
         }
-        if (firstTimeInclusion) {
-          zeroBitPlanesTree = precinct.zeroBitPlanesTree;
-          zeroBitPlanesTree.reset(codeblockColumn, codeblockRow);
-          while (true) {
-            if (position >= data.length) {
-              return;
+        var layerNumber = packet.layerNumber;
+        var queue = [], codeblock;
+        for (var i = 0, ii = packet.codeblocks.length; i < ii; i++) {
+          codeblock = packet.codeblocks[i];
+          var precinct = codeblock.precinct;
+          var codeblockColumn = codeblock.cbx - precinct.cbxMin;
+          var codeblockRow = codeblock.cby - precinct.cbyMin;
+          var codeblockIncluded = false;
+          var firstTimeInclusion = false;
+          var valueReady;
+          if (codeblock['included'] !== undefined) {
+            codeblockIncluded = !!readBits(1);
+          } else {
+            // reading inclusion tree
+            precinct = codeblock.precinct;
+            var inclusionTree, zeroBitPlanesTree;
+            if (precinct['inclusionTree'] !== undefined) {
+              inclusionTree = precinct.inclusionTree;
+            } else {
+              // building inclusion and zero bit-planes trees
+              var width = precinct.cbxMax - precinct.cbxMin + 1;
+              var height = precinct.cbyMax - precinct.cbyMin + 1;
+              inclusionTree = new InclusionTree(width, height);
+              zeroBitPlanesTree = new TagTree(width, height);
+              precinct.inclusionTree = inclusionTree;
+              precinct.zeroBitPlanesTree = zeroBitPlanesTree;
             }
-            if (readBits(1)) {
-              valueReady = !zeroBitPlanesTree.nextLevel();
-              if (valueReady) {
+
+            inclusionTree.reset(codeblockColumn, codeblockRow, layerNumber);
+            while (true) {
+              if (position >= data.length) {
+                return;
+              }
+              if (inclusionTree.isAboveThreshold()){
                 break;
               }
-            } else {
-              zeroBitPlanesTree.incrementValue();
+              if (inclusionTree.isKnown()) {
+                inclusionTree.nextLevel();
+                continue;
+              }
+              if (readBits(1)) {
+                inclusionTree.setKnown();
+                if (inclusionTree.isLeaf()) {
+                  codeblock.included = true;
+                  codeblockIncluded = firstTimeInclusion = true;
+                  break;
+                } else {
+                  inclusionTree.nextLevel();
+                }
+              } else {
+                inclusionTree.incrementValue();
+              }
             }
           }
-          codeblock.zeroBitPlanes = zeroBitPlanesTree.value;
+          if (!codeblockIncluded) {
+            continue;
+          }
+          if (firstTimeInclusion) {
+            zeroBitPlanesTree = precinct.zeroBitPlanesTree;
+            zeroBitPlanesTree.reset(codeblockColumn, codeblockRow);
+            while (true) {
+              if (position >= data.length) {
+                return;
+              }
+              if (readBits(1)) {
+                valueReady = !zeroBitPlanesTree.nextLevel();
+                if (valueReady) {
+                  break;
+                }
+              } else {
+                zeroBitPlanesTree.incrementValue();
+              }
+            }
+            codeblock.zeroBitPlanes = zeroBitPlanesTree.value;
+          }
+          var codingpasses = readCodingpasses();
+          while (readBits(1)) {
+            codeblock.Lblock++;
+          }
+          var codingpassesLog2 = log2(codingpasses);
+          // rounding down log2
+          var bits = ((codingpasses < (1 << codingpassesLog2)) ?
+                      codingpassesLog2 - 1 : codingpassesLog2) + codeblock.Lblock;
+          var codedDataLength = readBits(bits);
+          queue.push({
+            codeblock: codeblock,
+            codingpasses: codingpasses,
+            dataLength: codedDataLength
+          });
         }
-        var codingpasses = readCodingpasses();
-        while (readBits(1)) {
-          codeblock.Lblock++;
+        alignToByte();
+        if (ephMarkerUsed) {
+          skipMarkerIfEqual(0x92);
         }
-        var codingpassesLog2 = log2(codingpasses);
-        // rounding down log2
-        var bits = ((codingpasses < (1 << codingpassesLog2)) ?
-          codingpassesLog2 - 1 : codingpassesLog2) + codeblock.Lblock;
-        var codedDataLength = readBits(bits);
-        queue.push({
-          codeblock: codeblock,
-          codingpasses: codingpasses,
-          dataLength: codedDataLength
-        });
-      }
-      alignToByte();
-      if (ephMarkerUsed) {
-        skipMarkerIfEqual(0x92);
-      }
-      while (queue.length > 0) {
-        var packetItem = queue.shift();
-        codeblock = packetItem.codeblock;
-        if (codeblock['data'] === undefined) {
-          codeblock.data = [];
+        while (queue.length > 0) {
+          var packetItem = queue.shift();
+          codeblock = packetItem.codeblock;
+          if (codeblock['data'] === undefined) {
+            codeblock.data = [];
+          }
+          codeblock.data.push({
+            data: data,
+            start: offset + position,
+            end: offset + position + packetItem.dataLength,
+            codingpasses: packetItem.codingpasses
+          });
+          position += packetItem.dataLength;
         }
-        codeblock.data.push({
-          data: data,
-          start: offset + position,
-          end: offset + position + packetItem.dataLength,
-          codingpasses: packetItem.codingpasses
-        });
-        position += packetItem.dataLength;
+      } catch (e) {
+        return;
       }
     }
     return position;
