@@ -1674,6 +1674,9 @@ var JpxImage = (function JpxImageClosure() {
 
   // Section D. Coefficient bit modeling
   var BitModel = (function BitModelClosure() {
+    var neighborsSignificance;
+    var width;
+    var height;
     var UNIFORM_CONTEXT = 17;
     var RUNLENGTH_CONTEXT = 18;
     // Table D-1
@@ -1695,9 +1698,9 @@ var JpxImage = (function JpxImageClosure() {
       8, 0, 8, 8, 8, 0, 8, 8, 8, 0, 0, 0, 0, 0, 8, 8, 8, 0, 8, 8, 8, 0, 8, 8, 8
     ]);
 
-    function BitModel(width, height, subband, zeroBitPlanes, mb) {
-      this.width = width;
-      this.height = height;
+    function BitModel(width_in, height_in, subband, zeroBitPlanes, mb) {
+      width = width_in;
+      height = height_in;
 
       this.contextLabelTable = (subband === 'HH' ? HHContextLabel :
         (subband === 'HL' ? HLContextLabel : LLAndLHContextsLabel));
@@ -1706,7 +1709,7 @@ var JpxImage = (function JpxImageClosure() {
 
       // coefficients outside the encoding region treated as insignificant
       // add border state cells for significanceState
-      this.neighborsSignificance = new Uint8Array(coefficientCount);
+      neighborsSignificance = new Uint8Array(coefficientCount);
       this.coefficentsSign = new Uint8Array(coefficientCount);
       this.coefficentsMagnitude = mb > 14 ? new Uint32Array(coefficientCount) :
                                   mb > 6 ? new Uint16Array(coefficientCount) :
@@ -1741,8 +1744,8 @@ var JpxImage = (function JpxImageClosure() {
       },
       setNeighborsSignificance:
         function BitModel_setNeighborsSignificance(row, column, index) {
-        var neighborsSignificance = this.neighborsSignificance;
-        var width = this.width, height = this.height;
+        // var neighborsSignificance = this.neighborsSignificance;
+        // var width = this.width, height = this.height;
         var left = (column > 0);
         var right = (column + 1 < width);
         var i;
@@ -1780,10 +1783,10 @@ var JpxImage = (function JpxImageClosure() {
       runSignificancePropogationPass:
         function BitModel_runSignificancePropogationPass() {
         var decoder = this.decoder;
-        var width = this.width, height = this.height;
+        // var width = this.width, height = this.height;
         var coefficentsMagnitude = this.coefficentsMagnitude;
         var coefficentsSign = this.coefficentsSign;
-        var neighborsSignificance = this.neighborsSignificance;
+        // var neighborsSignificance = this.neighborsSignificance;
         var processingFlags = this.processingFlags;
         var contexts = this.contexts;
         var labels = this.contextLabelTable;
@@ -1824,7 +1827,7 @@ var JpxImage = (function JpxImageClosure() {
         }
       },
       decodeSignBit: function BitModel_decodeSignBit(row, column, index) {
-        var width = this.width, height = this.height;
+        // var width = this.width, height = this.height;
         var coefficentsMagnitude = this.coefficentsMagnitude;
         var coefficentsSign = this.coefficentsSign;
         var contribution, sign0, sign1, significance1;
@@ -1877,9 +1880,9 @@ var JpxImage = (function JpxImageClosure() {
       runMagnitudeRefinementPass:
         function BitModel_runMagnitudeRefinementPass() {
         var decoder = this.decoder;
-        var width = this.width, height = this.height;
+        // var width = this.width, height = this.height;
         var coefficentsMagnitude = this.coefficentsMagnitude;
-        var neighborsSignificance = this.neighborsSignificance;
+        // var neighborsSignificance = this.neighborsSignificance;
         var contexts = this.contexts;
         var bitsDecoded = this.bitsDecoded;
         var processingFlags = this.processingFlags;
@@ -1918,8 +1921,8 @@ var JpxImage = (function JpxImageClosure() {
       },
       runCleanupPass: function BitModel_runCleanupPass() {
         var decoder = this.decoder;
-        var width = this.width, height = this.height;
-        var neighborsSignificance = this.neighborsSignificance;
+        // var width = this.width, height = this.height;
+        // var neighborsSignificance = this.neighborsSignificance;
         var coefficentsMagnitude = this.coefficentsMagnitude;
         var coefficentsSign = this.coefficentsSign;
         var contexts = this.contexts;
@@ -2265,5 +2268,5 @@ var JpxImage = (function JpxImageClosure() {
   })();
 
   return JpxImage;
-})();
+  })();
 

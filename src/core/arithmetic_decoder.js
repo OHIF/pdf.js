@@ -19,14 +19,22 @@
 
 /* This class implements the QM Coder decoding as defined in
  *   JPEG 2000 Part I Final Committee Draft Version 1.0
- *   Annex C.3 Arithmetic decoding procedure 
+ *   Annex C.3 Arithmetic decoding procedure
  * available at http://www.jpeg.org/public/fcd15444-1.pdf
- * 
+ *
  * The arithmetic decoder is used in conjunction with context models to decode
  * JPEG2000 and JBIG2 streams.
  */
 var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
   // Table C-2
+  var data;
+  var bp;
+  var chigh;
+  var clow;
+  var ct;
+  var a;
+  var dataEnd;
+
   var QeTable = [
     {qe: 0x5601, nmps: 1, nlps: 1, switchFlag: 1},
     {qe: 0x3401, nmps: 2, nlps: 6, switchFlag: 0},
@@ -78,47 +86,47 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
   ];
 
   // C.3.5 Initialisation of the decoder (INITDEC)
-  function ArithmeticDecoder(data, start, end) {
-    this.data = data;
-    this.bp = start;
-    this.dataEnd = end;
+  function ArithmeticDecoder(data_in, start, end) {
+    data = data_in;//new Uint8Array(data_in);
+    bp = start;
+    dataEnd = end;
 
-    this.chigh = data[start];
-    this.clow = 0;
+    chigh = data[start];
+    clow = 0;
 
     this.byteIn();
 
-    this.chigh = ((this.chigh << 7) & 0xFFFF) | ((this.clow >> 9) & 0x7F);
-    this.clow = (this.clow << 7) & 0xFFFF;
-    this.ct -= 7;
-    this.a = 0x8000;
+    chigh = ((chigh << 7) & 0xFFFF) | ((clow >> 9) & 0x7F);
+    clow = (clow << 7) & 0xFFFF;
+    ct -= 7;
+    a = 0x8000;
   }
 
   ArithmeticDecoder.prototype = {
     // C.3.4 Compressed data input (BYTEIN)
     byteIn: function ArithmeticDecoder_byteIn() {
-      var data = this.data;
-      var bp = this.bp;
+      //var data = this.data;
+      // var bp = this.bp;
       if (data[bp] === 0xFF) {
         var b1 = data[bp + 1];
         if (b1 > 0x8F) {
-          this.clow += 0xFF00;
-          this.ct = 8;
+          clow += 0xFF00;
+          ct = 8;
         } else {
           bp++;
-          this.clow += (data[bp] << 9);
-          this.ct = 7;
-          this.bp = bp;
+          clow += (data[bp] << 9);
+          ct = 7;
+          // this.bp = bp;
         }
       } else {
         bp++;
-        this.clow += bp < this.dataEnd ? (data[bp] << 8) : 0xFF00;
-        this.ct = 8;
-        this.bp = bp;
+        clow += bp < dataEnd ? (data[bp] << 8) : 0xFF00;
+        ct = 8;
+        // this.bp = bp;
       }
-      if (this.clow > 0xFFFF) {
-        this.chigh += (this.clow >> 16);
-        this.clow &= 0xFFFF;
+      if (clow > 0xFFFF) {
+        chigh += (clow >> 16);
+        clow &= 0xFFFF;
       }
     },
     // C.3.2 Decoding a decision (DECODE)
@@ -129,16 +137,16 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
       var qeTableIcx = QeTable[cx_index];
       var qeIcx = qeTableIcx.qe;
       var d;
-      var a = this.a - qeIcx;
+      var tmp_a = a - qeIcx;
 
-      if (this.chigh < qeIcx) {
+      if (chigh < qeIcx) {
         // exchangeLps
-        if (a < qeIcx) {
-          a = qeIcx;
+        if (tmp_a < qeIcx) {
+          tmp_a = qeIcx;
           d = cx_mps;
           cx_index = qeTableIcx.nmps;
         } else {
-          a = qeIcx;
+          tmp_a = qeIcx;
           d = 1 ^ cx_mps;
           if (qeTableIcx.switchFlag === 1) {
             cx_mps = d;
@@ -146,13 +154,13 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
           cx_index = qeTableIcx.nlps;
         }
       } else {
-        this.chigh -= qeIcx;
-        if ((a & 0x8000) !== 0) {
-          this.a = a;
+        chigh -= qeIcx;
+        if ((tmp_a & 0x8000) !== 0) {
+          a = tmp_a;
           return cx_mps;
         }
         // exchangeMps
-        if (a < qeIcx) {
+        if (tmp_a < qeIcx) {
           d = 1 ^ cx_mps;
           if (qeTableIcx.switchFlag === 1) {
             cx_mps = d;
@@ -165,16 +173,16 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
       }
       // C.3.3 renormD;
       do {
-        if (this.ct === 0) {
+        if (ct === 0) {
           this.byteIn();
         }
 
-        a <<= 1;
-        this.chigh = ((this.chigh << 1) & 0xFFFF) | ((this.clow >> 15) & 1);
-        this.clow = (this.clow << 1) & 0xFFFF;
-        this.ct--;
-      } while ((a & 0x8000) === 0);
-      this.a = a;
+        tmp_a <<= 1;
+        chigh = ((chigh << 1) & 0xFFFF) | ((clow >> 15) & 1);
+        clow = (clow << 1) & 0xFFFF;
+        ct--;
+      } while ((tmp_a & 0x8000) === 0);
+      a = tmp_a;
 
       contexts[pos] = cx_index << 1 | cx_mps;
       return d;
