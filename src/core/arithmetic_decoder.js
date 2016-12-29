@@ -34,6 +34,7 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
   var ct;
   var a;
   var dataEnd;
+  var bufferend;
 
   var QeTable = [
     {qe: 0x5601, nmps: 1, nlps: 1, switchFlag: 1},
@@ -87,9 +88,10 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
 
   // C.3.5 Initialisation of the decoder (INITDEC)
   function ArithmeticDecoder(data_in, start, end) {
-    data = data_in;//new Uint8Array(data_in);
+    data = data_in;
     bp = start;
     dataEnd = end;
+    bufferend = data.length;
 
     chigh = data[start];
     clow = 0;
@@ -107,27 +109,37 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
     byteIn: function ArithmeticDecoder_byteIn() {
       //var data = this.data;
       // var bp = this.bp;
+      if (bp >= bufferend) {
+        clow = 0xFF00;
+        ct = 8;
+        return;
+      }
       if (data[bp] === 0xFF) {
-        var b1 = data[bp + 1];
+        var b1 = (bp+1 >= bufferend ? 0 : data[bp + 1]);
         if (b1 > 0x8F) {
           clow += 0xFF00;
           ct = 8;
+
         } else {
           bp++;
-          clow += (data[bp] << 9);
+          if (bp < dataEnd) {
+            clow += data[bp] << 9;
+
+          }
+          // clow += ((bp >= data.length ? 0 : data[bp]<< 9));
           ct = 7;
-          // this.bp = bp;
+
         }
       } else {
         bp++;
         clow += bp < dataEnd ? (data[bp] << 8) : 0xFF00;
         ct = 8;
-        // this.bp = bp;
+
       }
-      if (clow > 0xFFFF) {
-        chigh += (clow >> 16);
-        clow &= 0xFFFF;
-      }
+        if (clow > 0xFFFF) {
+          chigh += (clow >> 16);
+          clow &= 0xFFFF;
+        }
     },
     // C.3.2 Decoding a decision (DECODE)
     readBit: function ArithmeticDecoder_readBit(contexts, pos) {

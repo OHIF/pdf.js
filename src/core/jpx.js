@@ -529,7 +529,18 @@ var JpxImage = (function JpxImageClosure() {
           tbx0: codeblockWidth * i,
           tby0: codeblockHeight * j,
           tbx1: codeblockWidth * (i + 1),
-          tby1: codeblockHeight * (j + 1)
+          tby1: codeblockHeight * (j + 1),
+          tbx0_: 0,
+          tby0_: 0,
+          tbx1_: 0,
+          tby1_: 0,
+          data: null,
+          precinctNumber: 0,
+          subbandType: 0,
+          Lblock: 0,
+          precinct: null,
+          included: false,
+          zeroBitPlanes: 0,
         };
 
         codeblock.tbx0_ = Math.max(subband.tbx0, codeblock.tbx0);
@@ -1112,7 +1123,7 @@ var JpxImage = (function JpxImageClosure() {
           var codeblockIncluded = false;
           var firstTimeInclusion = false;
           var valueReady;
-          if (codeblock['included'] !== undefined) {
+          if (codeblock.included) {
             codeblockIncluded = !!readBits(1);
           } else {
             // reading inclusion tree
@@ -1199,7 +1210,7 @@ var JpxImage = (function JpxImageClosure() {
         while (queue.length > 0) {
           var packetItem = queue.shift();
           codeblock = packetItem.codeblock;
-          if (codeblock['data'] === undefined) {
+          if (codeblock.data === null) {
             codeblock.data = [];
           }
           codeblock.data.push({
@@ -1232,7 +1243,7 @@ var JpxImage = (function JpxImageClosure() {
       if (blockWidth === 0 || blockHeight === 0) {
         continue;
       }
-      if (codeblock['data'] === undefined) {
+      if (codeblock.data === null) {
         continue;
       }
 
@@ -1249,7 +1260,7 @@ var JpxImage = (function JpxImageClosure() {
         totalLength += dataItem.end - dataItem.start;
         codingpasses += dataItem.codingpasses;
       }
-      var encodedData = new Int16Array(totalLength);
+      var encodedData = new Uint8Array(totalLength);
       var position = 0;
       for (j = 0, jj = data.length; j < jj; j++) {
         dataItem = data[j];
