@@ -28,13 +28,12 @@
 var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
   // Table C-2
   var data;
-  var bp;
-  var chigh;
-  var clow;
-  var ct;
-  var a;
-  var dataEnd;
-  var bufferend;
+  var bp=0;
+  var chigh =0;
+  var clow =0;
+  var ct=0;
+  var a=0;
+  var dataEnd=0;
 
   var QeTable = [
     {qe: 0x5601, nmps: 1, nlps: 1, switchFlag: 1},
@@ -91,7 +90,6 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
     data = data_in;
     bp = start;
     dataEnd = end;
-    bufferend = data.length;
 
     chigh = data[start];
     clow = 0;
@@ -109,13 +107,13 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
     byteIn: function ArithmeticDecoder_byteIn() {
       //var data = this.data;
       // var bp = this.bp;
-      if (bp >= bufferend) {
+      if (bp >= data.length) {
         clow = 0xFF00;
         ct = 8;
         return;
       }
       if (data[bp] === 0xFF) {
-        var b1 = (bp+1 >= bufferend ? 0 : data[bp + 1]);
+        var b1 = data[bp + 1];
         if (b1 > 0x8F) {
           clow += 0xFF00;
           ct = 8;
@@ -136,10 +134,10 @@ var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
         ct = 8;
 
       }
-        if (clow > 0xFFFF) {
-          chigh += (clow >> 16);
-          clow &= 0xFFFF;
-        }
+      if (clow > 0xFFFF) {
+        chigh += (clow >> 16);
+        clow &= 0xFFFF;
+      }
     },
     // C.3.2 Decoding a decision (DECODE)
     readBit: function ArithmeticDecoder_readBit(contexts, pos) {
