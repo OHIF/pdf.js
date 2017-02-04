@@ -274,6 +274,8 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   var HEAPU8 = new stdlib.Uint8Array(heap);
   var HEAP8 = new stdlib.Int8Array(heap);
   var HEAPU16 = new stdlib.Uint16Array(heap);
+  var HEAPU32 = new stdlib.Uint32Array(heap);
+  var HEAP16 = new Int16Array(HEAP);
 
   var data_length = 0;
   var offset_context = 0;   // 19 byte
@@ -282,47 +284,47 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   var offset_nlps = 20 + 47 * 2 + 47; // 47 byte
   var offset_switchFlag = 20 + 47 * 2 + 47 + 47; // 47 byte
 
-  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + 1; // 47 short
-  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2; //short
-  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2; //short
-  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2 + 2; //short
-  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2 + 2 + 2; //short
-  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 1 + 47 + 2 + 2 + 2 + 2 + 2; //short
-  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2 + 2 + 2 + 2 + 2;
+  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + (1); // 47 short
+  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2); //short -> long
+  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4; //short  -> long
+  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4; //short
+  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2; //short
+  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2; //short
+  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2 + 2;
 
   function byteIn() {
     //var data = this.data;
     // var bp = this.bp;
     if (HEAPU16[offset_bp >> 1] >= data_length) {
-      HEAPU16[offset_clow >> 1] = 0xFF00;
-      HEAPU16[offset_ct >> 1] = 8;
+      HEAPU32[offset_clow >> 2] = 0xFF00;
+      HEAP16[offset_ct >> 1] = 8;
       return;
     }
     if (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] === 0xFF) {
-      var b1 = [HEAPU16[offset_bp >> 1] + 1];
+      var b1 = HEAPU16[(offset_bp >> 1) + 1];
       if (b1 > 0x8F) {
-        HEAPU16[offset_clow >> 1] += 0xFF00;
-        HEAPU16[offset_ct >> 1] = 8;
+        HEAPU32[offset_clow >> 2] += 0xFF00;
+        HEAP16[offset_ct >> 1] = 8;
 
       } else {
         HEAPU16[offset_bp >> 1]++;
         if (HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1]) {
-          HEAPU16[offset_clow >> 1] += (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 9) >>> 0;
+          HEAPU32[offset_clow >> 2] += (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 9) >>> 0;
 
         }
         // clow += ((bp >= data.length ? 0 : data[bp]<< 9));
-        HEAPU16[offset_ct >> 1] = 7;
+        HEAP16[offset_ct >> 1] = 7;
 
       }
     } else {
       HEAPU16[offset_bp >> 1]++;
-      HEAPU16[offset_clow >> 1] += HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1] ? (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 8) : 0xFF00;
-      HEAPU16[offset_ct >> 1] = 8;
+      HEAPU32[offset_clow >> 2] += HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1] ? (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 8) : 0xFF00;
+      HEAP16[offset_ct >> 1] = 8;
 
     }
-    if (HEAPU16[offset_clow >> 1] > 0xFFFF) {
-      HEAPU16[offset_chigh >> 1] += (HEAPU16[offset_clow >> 1] >>> 16);
-      HEAPU16[offset_clow >> 1] &= 0xFFFF;
+    if (HEAPU32[offset_clow >> 2] > 0xFFFF) {
+      HEAPU32[offset_chigh >> 2] += (HEAPU32[offset_clow >> 2] >>> 16);
+      HEAPU32[offset_clow >> 2] &= 0xFFFF;
     }
   }
 
@@ -338,7 +340,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
     var d = 0;
     var tmp_a = HEAPU16[offset_a >> 1] - qeIcx;
 
-    if (HEAPU16[offset_chigh >> 1] < qeIcx) {
+    if (HEAPU32[offset_chigh >> 2] < qeIcx) {
       // exchangeLps
       if (tmp_a < qeIcx) {
         tmp_a = qeIcx;
@@ -353,7 +355,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
         cx_index = HEAPU8[offset_nlps + cx_index];
       }
     } else {
-      HEAPU16[offset_chigh >> 1] -= qeIcx;
+      HEAPU32[offset_chigh >> 2] -= qeIcx;
       if ((tmp_a & 0x8000) !== 0) {
         HEAPU16[offset_a >> 1] = tmp_a;
         return cx_mps | 0;
@@ -373,14 +375,14 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
     // C.3.3 renormD;
 
     do {
-      if (HEAPU16[offset_ct >> 1] === 0) {
+      if (HEAP16[offset_ct >> 1] === 0) {
         byteIn();
       }
 
       tmp_a <<= 1;
-      HEAPU16[offset_chigh >> 1] = (((HEAPU16[offset_chigh >> 1] << 1) & 0xFFFF) | ((HEAPU16[offset_clow >> 1] >>> 15) & 1));
-      HEAPU16[offset_clow >> 1] = ((HEAPU16[offset_clow >> 1] << 1) & 0xFFFF);
-      HEAPU16[offset_ct >> 1]--;
+      HEAPU32[offset_chigh >> 2] = (((HEAPU32[offset_chigh >> 2] << 1) & 0xFFFF) | ((HEAPU32[offset_clow >> 2] >>> 15) & 1));
+      HEAPU32[offset_clow >> 2] = ((HEAPU32[offset_clow >> 2] << 1) & 0xFFFF);
+      HEAP16[offset_ct >> 1]--;
     } while ((tmp_a & 0x8000) === 0);
     HEAPU16[offset_a >> 1] = tmp_a;
 
@@ -411,13 +413,13 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   var offset_nlps = 20 + 47 * 2 + 47; // 47 byte
   var offset_switchFlag = 20 + 47 * 2 + 47 + 47; // 47 byte
 
-  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + 1; // 47 short
-  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2; //short
-  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2; //short
-  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2 + 2; //short
-  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2 + 2 + 2; //short
-  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 1+ 47 + 2 + 2 + 2 + 2 + 2; //short
-  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2 + 2 + 2 + 2 + 2;
+  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + (1); // 47 short
+  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2); //short -> long
+  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4; //short  -> long
+  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4; //short
+  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2; //short
+  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2; //short
+  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2 + 2;
 
   function determineDataLength(data) {
     var data_length = 0;
@@ -455,25 +457,29 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   ArithmeticDecoder.setup = function (data, start, end) {
     var HEAPU8 = new Uint8Array(HEAP);
     var HEAPU16 = new Uint16Array(HEAP);
+    var HEAP16 = new Int16Array(HEAP);
+    var HEAPU32 = new Uint32Array(HEAP);
     copyInputData(offset_qetable, qeTable);
     copyInputData(offset_nmps, nmps);
     copyInputData(offset_nlps, nlps);
     copyInputData(offset_switchFlag, switchFlag);
+
+
     var data_length = copyInputData(offset_data, data);
     ArithmeticDecoder.setInputDataLength(data_length);
 
     HEAPU16[offset_bp >> 1] = start;
     HEAPU16[offset_dataEnd >> 1] = end;
 
-    HEAPU16[offset_chigh >> 1] = data[start];
-    HEAPU16[offset_clow >> 1] = 0;
+    HEAPU32[offset_chigh >> 2] = data[start];
+    HEAPU32[offset_clow >> 2] = 0;
 
     ArithmeticDecoder.byteIn();
 
-    HEAPU16[offset_chigh >> 1] = (((HEAPU16[offset_chigh >> 1] << 7) & 0xFFFF) | ((HEAPU16[offset_clow >> 1] >>> 9) & 0x7F));
-    HEAPU16[offset_clow >> 1] = ((HEAPU16[offset_clow >> 1] << 7) & 0xFFFF);
+    HEAPU32[offset_chigh >> 2] = (((HEAPU32[offset_chigh >> 2] << 7) & 0xFFFF) | ((HEAPU32[offset_clow >> 2] >>> 9) & 0x7F));
+    HEAPU32[offset_clow >> 2] = ((HEAPU32[offset_clow >> 2] << 7) & 0xFFFF);
 
-    HEAPU16[offset_ct >> 1] -= 7;
+    HEAP16[offset_ct >> 1] -= 7;
     HEAPU16[offset_a >> 1] =  0x8000;
 
     return;
