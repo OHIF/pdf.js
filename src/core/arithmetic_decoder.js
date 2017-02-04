@@ -53,6 +53,7 @@ var STDLIB = {
   "Int32Array": Int32Array,
   "Uint8Array": Uint8Array,
   "Uint16Array": Uint16Array,
+  "Int16Array": Int16Array,
   "Int8Array": Int8Array,
   "Uint32Array": Uint32Array
 };
@@ -275,7 +276,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   var HEAP8 = new stdlib.Int8Array(heap);
   var HEAPU16 = new stdlib.Uint16Array(heap);
   var HEAPU32 = new stdlib.Uint32Array(heap);
-  var HEAP16 = new Int16Array(HEAP);
+  var HEAP16 = new stdlib.Int16Array(heap);
 
   var data_length = 0;
   var offset_context = 0;   // 19 byte
