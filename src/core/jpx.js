@@ -19,6 +19,7 @@
 
 'use strict';
 
+
 var JpxImage = (function JpxImageClosure() {
   // Table E.1
   var SubbandsGainLog2 = {
@@ -1269,7 +1270,8 @@ var JpxImage = (function JpxImageClosure() {
         position += chunk.length;
       }
       // decoding the item
-      var decoder = new ArithmeticDecoder(encodedData, 0, totalLength);
+      var decoder = ArithmeticDecoder;
+      decoder.setup(encodedData, 0, totalLength)
       bitModel.setDecoder(decoder);
 
       for (j = 0; j < codingpasses; j++) {
@@ -1745,7 +1747,7 @@ var JpxImage = (function JpxImageClosure() {
       reset: function BitModel_reset() {
         // We have 17 contexts that are accessed via context labels,
         // plus the uniform and runlength context.
-        this.contexts = new Int8Array(19);
+        this.contexts = ArithmeticDecoder.createContext();
 
         // Contexts are packed into 1 byte:
         // highest 7 bits carry the index, lowest bit carries mps
@@ -1823,7 +1825,7 @@ var JpxImage = (function JpxImageClosure() {
               }
 
               var contextLabel = labels[neighborsSignificance[index]];
-              var decision = decoder.readBit(contexts, contextLabel);
+              var decision = decoder.readBit(contextLabel);
               if (decision) {
                 var sign = this.decodeSignBit(i, j, index);
                 coefficentsSign[index] = sign;
@@ -1881,10 +1883,10 @@ var JpxImage = (function JpxImageClosure() {
 
         if (contribution >= 0) {
           contextLabel = 9 + contribution;
-          decoded = this.decoder.readBit(this.contexts, contextLabel);
+          decoded = this.decoder.readBit(contextLabel);
         } else {
           contextLabel = 9 - contribution;
-          decoded = this.decoder.readBit(this.contexts, contextLabel) ^ 1;
+          decoded = this.decoder.readBit(contextLabel) ^ 1;
         }
         return decoded;
       },
@@ -1921,7 +1923,7 @@ var JpxImage = (function JpxImageClosure() {
                contextLabel = significance === 0 ? 15 : 14;
               }
 
-              var bit = decoder.readBit(contexts, contextLabel);
+              var bit = decoder.readBit(contextLabel);
               coefficentsMagnitude[index] =
                 (coefficentsMagnitude[index] << 1) | bit;
               bitsDecoded[index]++;
@@ -1967,7 +1969,7 @@ var JpxImage = (function JpxImageClosure() {
             var i = i0, sign;
             if (allEmpty) {
               var hasSignificantCoefficent =
-                decoder.readBit(contexts, RUNLENGTH_CONTEXT);
+                decoder.readBit(RUNLENGTH_CONTEXT);
               if (!hasSignificantCoefficent) {
                 bitsDecoded[index0]++;
                 bitsDecoded[index0 + oneRowDown]++;
@@ -1975,8 +1977,8 @@ var JpxImage = (function JpxImageClosure() {
                 bitsDecoded[index0 + threeRowsDown]++;
                 continue; // next column
               }
-              i1 = (decoder.readBit(contexts, UNIFORM_CONTEXT) << 1) |
-                    decoder.readBit(contexts, UNIFORM_CONTEXT);
+              i1 = (decoder.readBit(UNIFORM_CONTEXT) << 1) |
+                    decoder.readBit(UNIFORM_CONTEXT);
               if (i1 !== 0) {
                 i = i0 + i1;
                 index += i1 * width;
@@ -2002,7 +2004,7 @@ var JpxImage = (function JpxImageClosure() {
               }
 
               var contextLabel = labels[neighborsSignificance[index]];
-              var decision = decoder.readBit(contexts, contextLabel);
+              var decision = decoder.readBit(contextLabel);
               if (decision === 1) {
                 sign = this.decodeSignBit(i, j, index);
                 coefficentsSign[index] = sign;
@@ -2018,10 +2020,10 @@ var JpxImage = (function JpxImageClosure() {
       checkSegmentationSymbol: function BitModel_checkSegmentationSymbol() {
         var decoder = this.decoder;
         var contexts = this.contexts;
-        var symbol = (decoder.readBit(contexts, UNIFORM_CONTEXT) << 3) |
-                     (decoder.readBit(contexts, UNIFORM_CONTEXT) << 2) |
-                     (decoder.readBit(contexts, UNIFORM_CONTEXT) << 1) |
-                      decoder.readBit(contexts, UNIFORM_CONTEXT);
+        var symbol = (decoder.readBit(UNIFORM_CONTEXT) << 3) |
+                     (decoder.readBit(UNIFORM_CONTEXT) << 2) |
+                     (decoder.readBit(UNIFORM_CONTEXT) << 1) |
+                      decoder.readBit(UNIFORM_CONTEXT);
         if (symbol !== 0xA) {
           throw new Error('JPX Error: Invalid segmentation symbol');
         }
@@ -2281,3 +2283,4 @@ var JpxImage = (function JpxImageClosure() {
   return JpxImage;
   })();
 
+module.exports = JpxImage

@@ -1,203 +1,491 @@
-/* -*- Mode: Java; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set shiftwidth=2 tabstop=2 autoindent cindent expandtab: */
-/* Copyright 2012 Mozilla Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+var Module;
 
-'use strict';
+if (!Module) {
+  Module = {};
 
-/* This class implements the QM Coder decoding as defined in
- *   JPEG 2000 Part I Final Committee Draft Version 1.0
- *   Annex C.3 Arithmetic decoding procedure
- * available at http://www.jpeg.org/public/fcd15444-1.pdf
- *
- * The arithmetic decoder is used in conjunction with context models to decode
- * JPEG2000 and JBIG2 streams.
- */
-var ArithmeticDecoder = (function ArithmeticDecoderClosure() {
-  // Table C-2
-  var data;
-  var bp=0;
-  var chigh =0;
-  var clow =0;
-  var ct=0;
-  var a=0;
-  var dataEnd=0;
+  // The environment setup code below is customized to use Module.
+  var ENVIRONMENT_IS_NODE = typeof process === 'object'
+    && typeof require === 'function';
+  var ENVIRONMENT_IS_WEB = typeof window === 'object';
+  var ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
+  var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE
+    && !ENVIRONMENT_IS_WORKER;
 
-  var QeTable = [
-    {qe: 0x5601, nmps: 1, nlps: 1, switchFlag: 1},
-    {qe: 0x3401, nmps: 2, nlps: 6, switchFlag: 0},
-    {qe: 0x1801, nmps: 3, nlps: 9, switchFlag: 0},
-    {qe: 0x0AC1, nmps: 4, nlps: 12, switchFlag: 0},
-    {qe: 0x0521, nmps: 5, nlps: 29, switchFlag: 0},
-    {qe: 0x0221, nmps: 38, nlps: 33, switchFlag: 0},
-    {qe: 0x5601, nmps: 7, nlps: 6, switchFlag: 1},
-    {qe: 0x5401, nmps: 8, nlps: 14, switchFlag: 0},
-    {qe: 0x4801, nmps: 9, nlps: 14, switchFlag: 0},
-    {qe: 0x3801, nmps: 10, nlps: 14, switchFlag: 0},
-    {qe: 0x3001, nmps: 11, nlps: 17, switchFlag: 0},
-    {qe: 0x2401, nmps: 12, nlps: 18, switchFlag: 0},
-    {qe: 0x1C01, nmps: 13, nlps: 20, switchFlag: 0},
-    {qe: 0x1601, nmps: 29, nlps: 21, switchFlag: 0},
-    {qe: 0x5601, nmps: 15, nlps: 14, switchFlag: 1},
-    {qe: 0x5401, nmps: 16, nlps: 14, switchFlag: 0},
-    {qe: 0x5101, nmps: 17, nlps: 15, switchFlag: 0},
-    {qe: 0x4801, nmps: 18, nlps: 16, switchFlag: 0},
-    {qe: 0x3801, nmps: 19, nlps: 17, switchFlag: 0},
-    {qe: 0x3401, nmps: 20, nlps: 18, switchFlag: 0},
-    {qe: 0x3001, nmps: 21, nlps: 19, switchFlag: 0},
-    {qe: 0x2801, nmps: 22, nlps: 19, switchFlag: 0},
-    {qe: 0x2401, nmps: 23, nlps: 20, switchFlag: 0},
-    {qe: 0x2201, nmps: 24, nlps: 21, switchFlag: 0},
-    {qe: 0x1C01, nmps: 25, nlps: 22, switchFlag: 0},
-    {qe: 0x1801, nmps: 26, nlps: 23, switchFlag: 0},
-    {qe: 0x1601, nmps: 27, nlps: 24, switchFlag: 0},
-    {qe: 0x1401, nmps: 28, nlps: 25, switchFlag: 0},
-    {qe: 0x1201, nmps: 29, nlps: 26, switchFlag: 0},
-    {qe: 0x1101, nmps: 30, nlps: 27, switchFlag: 0},
-    {qe: 0x0AC1, nmps: 31, nlps: 28, switchFlag: 0},
-    {qe: 0x09C1, nmps: 32, nlps: 29, switchFlag: 0},
-    {qe: 0x08A1, nmps: 33, nlps: 30, switchFlag: 0},
-    {qe: 0x0521, nmps: 34, nlps: 31, switchFlag: 0},
-    {qe: 0x0441, nmps: 35, nlps: 32, switchFlag: 0},
-    {qe: 0x02A1, nmps: 36, nlps: 33, switchFlag: 0},
-    {qe: 0x0221, nmps: 37, nlps: 34, switchFlag: 0},
-    {qe: 0x0141, nmps: 38, nlps: 35, switchFlag: 0},
-    {qe: 0x0111, nmps: 39, nlps: 36, switchFlag: 0},
-    {qe: 0x0085, nmps: 40, nlps: 37, switchFlag: 0},
-    {qe: 0x0049, nmps: 41, nlps: 38, switchFlag: 0},
-    {qe: 0x0025, nmps: 42, nlps: 39, switchFlag: 0},
-    {qe: 0x0015, nmps: 43, nlps: 40, switchFlag: 0},
-    {qe: 0x0009, nmps: 44, nlps: 41, switchFlag: 0},
-    {qe: 0x0005, nmps: 45, nlps: 42, switchFlag: 0},
-    {qe: 0x0001, nmps: 45, nlps: 43, switchFlag: 0},
-    {qe: 0x5601, nmps: 46, nlps: 46, switchFlag: 0}
-  ];
+  if (ENVIRONMENT_IS_NODE) {
+    // Expose functionality in the same simple way that the shells work
+    // Note that we pollute the global namespace here, otherwise we break
+    // in node
+    // if (!Module['print'])
+    //   Module['print'] = function print(x) {
+    //     process['stdout'].write(x + '\n');
+    //   };
 
-  // C.3.5 Initialisation of the decoder (INITDEC)
-  function ArithmeticDecoder(data_in, start, end) {
-    data = data_in;
-    bp = start;
-    dataEnd = end;
+    // if (!Module['printErr'])
+    //   Module['printErr'] = function printErr(x) {
+    //     process['stderr'].write(x + '\n');
+    //   };
 
-    chigh = data[start];
-    clow = 0;
+  } else if (ENVIRONMENT_IS_SHELL) {
+    // if (!Module['print'])
+    //   Module['print'] = print;
 
-    this.byteIn();
+    // if (typeof printErr != 'undefined')
+    //   Module['printErr'] = printErr; // not present in v8 or older sm
+  } else if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
+    // if (typeof console !== 'undefined') {
+    //   if (!Module['print'])
+    //     Module['print'] = function print(x) {
+    //       console.log(x);
+    //     };
 
-    chigh = ((chigh << 7) & 0xFFFF) | ((clow >> 9) & 0x7F);
-    clow = (clow << 7) & 0xFFFF;
-    ct -= 7;
-    a = 0x8000;
+    //   if (!Module['printErr'])
+    //     Module['printErr'] = function printErr(x) {
+    //       console.log(x);
+    //     };
+    // }
+  }
+}
+
+var FOREIGN = {}
+
+var STDLIB = {
+  "Math": Math,
+  "Int32Array": Int32Array,
+  "Uint8Array": Uint8Array,
+  "Uint16Array": Uint16Array,
+  "Int8Array": Int8Array,
+  "Uint32Array": Uint32Array
+};
+
+
+
+
+var TOTAL_MEMORY = Module['TOTAL_MEMORY'] || 16777216;
+var HEAP = new ArrayBuffer(TOTAL_MEMORY);
+
+var qeTable = new Uint16Array([
+  0x5601,
+  0x3401,
+  0x1801,
+  0x0AC1,
+  0x0521,
+  0x0221,
+  0x5601,
+  0x5401,
+  0x4801,
+  0x3801,
+  0x3001,
+  0x2401,
+  0x1C01,
+  0x1601,
+  0x5601,
+  0x5401,
+  0x5101,
+  0x4801,
+  0x3801,
+  0x3401,
+  0x3001,
+  0x2801,
+  0x2401,
+  0x2201,
+  0x1C01,
+  0x1801,
+  0x1601,
+  0x1401,
+  0x1201,
+  0x1101,
+  0x0AC1,
+  0x09C1,
+  0x08A1,
+  0x0521,
+  0x0441,
+  0x02A1,
+  0x0221,
+  0x0141,
+  0x0111,
+  0x0085,
+  0x0049,
+  0x0025,
+  0x0015,
+  0x0009,
+  0x0005,
+  0x0001,
+  0x5601]);
+
+var nmps = new Uint8Array([
+  1,
+  2,
+  3,
+  4,
+  5,
+  38,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  29,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  44,
+  45,
+  45,
+  46
+]);
+
+var nlps = new Uint8Array([
+  1,
+  6,
+  9,
+  12,
+  29,
+  33,
+  6,
+  14,
+  14,
+  14,
+  17,
+  18,
+  20,
+  21,
+  14,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  46
+]);
+
+var switchFlag = new Uint8Array([
+  1,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0]);
+
+
+
+
+
+
+var ArithmeticDecoder = (function (stdlib, foreign, heap) {
+  "use asm";
+
+
+
+  var HEAPU8 = new stdlib.Uint8Array(heap);
+  var HEAP8 = new stdlib.Int8Array(heap);
+  var HEAPU16 = new stdlib.Uint16Array(heap);
+
+  var data_length = 0;
+  var offset_context = 0;   // 19 byte
+  var offset_qetable = 20;  // 47 short
+  var offset_nmps = 20 + 47 * 2; // 47 byte
+  var offset_nlps = 20 + 47 * 2 + 47; // 47 byte
+  var offset_switchFlag = 20 + 47 * 2 + 47 + 47; // 47 byte
+
+  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + 1; // 47 short
+  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2; //short
+  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2; //short
+  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2 + 2; //short
+  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2 + 2 + 2; //short
+  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 1 + 47 + 2 + 2 + 2 + 2 + 2; //short
+  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2 + 2 + 2 + 2 + 2 + 2;
+
+  function byteIn() {
+    //var data = this.data;
+    // var bp = this.bp;
+    if (HEAPU16[offset_bp >> 1] >= data_length) {
+      HEAPU16[offset_clow >> 1] = 0xFF00;
+      HEAPU16[offset_ct >> 1] = 8;
+      return;
+    }
+    if (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] === 0xFF) {
+      var b1 = [HEAPU16[offset_bp >> 1] + 1];
+      if (b1 > 0x8F) {
+        HEAPU16[offset_clow >> 1] += 0xFF00;
+        HEAPU16[offset_ct >> 1] = 8;
+
+      } else {
+        HEAPU16[offset_bp >> 1]++;
+        if (HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1]) {
+          HEAPU16[offset_clow >> 1] += (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 9) >>> 0;
+
+        }
+        // clow += ((bp >= data.length ? 0 : data[bp]<< 9));
+        HEAPU16[offset_ct >> 1] = 7;
+
+      }
+    } else {
+      HEAPU16[offset_bp >> 1]++;
+      HEAPU16[offset_clow >> 1] += HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1] ? (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 8) : 0xFF00;
+      HEAPU16[offset_ct >> 1] = 8;
+
+    }
+    if (HEAPU16[offset_clow >> 1] > 0xFFFF) {
+      HEAPU16[offset_chigh >> 1] += (HEAPU16[offset_clow >> 1] >>> 16);
+      HEAPU16[offset_clow >> 1] &= 0xFFFF;
+    }
   }
 
-  ArithmeticDecoder.prototype = {
-    // C.3.4 Compressed data input (BYTEIN)
-    byteIn: function ArithmeticDecoder_byteIn() {
-      //var data = this.data;
-      // var bp = this.bp;
-      if (bp >= data.length) {
-        clow = 0xFF00;
-        ct = 8;
-        return;
-      }
-      if (data[bp] === 0xFF) {
-        var b1 = data[bp + 1];
-        if (b1 > 0x8F) {
-          clow += 0xFF00;
-          ct = 8;
+  function readBit(pos) {
+    var pos = pos | 0;
 
-        } else {
-          bp++;
-          if (bp < dataEnd) {
-            clow += data[bp] << 9;
+    // contexts are packed into 1 byte:
+    // highest 7 bits carry cx.index, lowest bit carries cx.mps
+    var cx_index = HEAP8[offset_context + pos] >> 1;
+    var cx_mps = HEAP8[offset_context + pos] & 1;
+    // var qeTableIcx = QeTable[cx_index];
+    var qeIcx =  HEAPU16[(offset_qetable >> 1) + cx_index];
+    var d = 0;
+    var tmp_a = HEAPU16[offset_a >> 1] - qeIcx;
 
-          }
-          // clow += ((bp >= data.length ? 0 : data[bp]<< 9));
-          ct = 7;
-
-        }
+    if (HEAPU16[offset_chigh >> 1] < qeIcx) {
+      // exchangeLps
+      if (tmp_a < qeIcx) {
+        tmp_a = qeIcx;
+        d = cx_mps;
+        cx_index = HEAPU8[offset_nmps + cx_index];
       } else {
-        bp++;
-        clow += bp < dataEnd ? (data[bp] << 8) : 0xFF00;
-        ct = 8;
-
-      }
-      if (clow > 0xFFFF) {
-        chigh += (clow >> 16);
-        clow &= 0xFFFF;
-      }
-    },
-    // C.3.2 Decoding a decision (DECODE)
-    readBit: function ArithmeticDecoder_readBit(contexts, pos) {
-      // contexts are packed into 1 byte:
-      // highest 7 bits carry cx.index, lowest bit carries cx.mps
-      var cx_index = contexts[pos] >> 1, cx_mps = contexts[pos] & 1;
-      var qeTableIcx = QeTable[cx_index];
-      var qeIcx = qeTableIcx.qe;
-      var d;
-      var tmp_a = a - qeIcx;
-
-      if (chigh < qeIcx) {
-        // exchangeLps
-        if (tmp_a < qeIcx) {
-          tmp_a = qeIcx;
-          d = cx_mps;
-          cx_index = qeTableIcx.nmps;
-        } else {
-          tmp_a = qeIcx;
-          d = 1 ^ cx_mps;
-          if (qeTableIcx.switchFlag === 1) {
-            cx_mps = d;
-          }
-          cx_index = qeTableIcx.nlps;
+        tmp_a = qeIcx;
+        d = 1 ^ cx_mps;
+        if (HEAPU8[offset_switchFlag + cx_index] === 1) {
+          cx_mps = d;
         }
+        cx_index = HEAPU8[offset_nlps + cx_index];
+      }
+    } else {
+      HEAPU16[offset_chigh >> 1] -= qeIcx;
+      if ((tmp_a & 0x8000) !== 0) {
+        HEAPU16[offset_a >> 1] = tmp_a;
+        return cx_mps | 0;
+      }
+      // exchangeMps
+      if (tmp_a < qeIcx) {
+        d = 1 ^ cx_mps;
+        if (HEAPU8[offset_switchFlag + cx_index] === 1) {
+          cx_mps = d;
+        }
+        cx_index = HEAPU8[offset_nlps + cx_index];
       } else {
-        chigh -= qeIcx;
-        if ((tmp_a & 0x8000) !== 0) {
-          a = tmp_a;
-          return cx_mps;
-        }
-        // exchangeMps
-        if (tmp_a < qeIcx) {
-          d = 1 ^ cx_mps;
-          if (qeTableIcx.switchFlag === 1) {
-            cx_mps = d;
-          }
-          cx_index = qeTableIcx.nlps;
-        } else {
-          d = cx_mps;
-          cx_index = qeTableIcx.nmps;
-        }
+        d = cx_mps;
+        cx_index = HEAPU8[offset_nmps + cx_index];
       }
-      // C.3.3 renormD;
-      do {
-        if (ct === 0) {
-          this.byteIn();
-        }
-
-        tmp_a <<= 1;
-        chigh = ((chigh << 1) & 0xFFFF) | ((clow >> 15) & 1);
-        clow = (clow << 1) & 0xFFFF;
-        ct--;
-      } while ((tmp_a & 0x8000) === 0);
-      a = tmp_a;
-
-      contexts[pos] = cx_index << 1 | cx_mps;
-      return d;
     }
+    // C.3.3 renormD;
+
+    do {
+      if (HEAPU16[offset_ct >> 1] === 0) {
+        byteIn();
+      }
+
+      tmp_a <<= 1;
+      HEAPU16[offset_chigh >> 1] = (((HEAPU16[offset_chigh >> 1] << 1) & 0xFFFF) | ((HEAPU16[offset_clow >> 1] >>> 15) & 1));
+      HEAPU16[offset_clow >> 1] = ((HEAPU16[offset_clow >> 1] << 1) & 0xFFFF);
+      HEAPU16[offset_ct >> 1]--;
+    } while ((tmp_a & 0x8000) === 0);
+    HEAPU16[offset_a >> 1] = tmp_a;
+
+    HEAP8[offset_context+pos] = cx_index << 1 | cx_mps;
+    return d | 0;
+  }
+
+  function setInputDataLength(length) {
+    length = length | 0;
+    data_length = length | 0;
+  }
+
+  return {
+    readBit: readBit,
+    byteIn: byteIn,
+    setInputDataLength: setInputDataLength
   };
 
-  return ArithmeticDecoder;
+})(STDLIB, FOREIGN, HEAP);
+
+
+
+(function () {
+  var data_length = 0;
+  var offset_context = 0;   // 19 byte
+  var offset_qetable = 20;  // 47 short
+  var offset_nmps = 20 + 47 * 2; // 47 byte
+  var offset_nlps = 20 + 47 * 2 + 47; // 47 byte
+  var offset_switchFlag = 20 + 47 * 2 + 47 + 47; // 47 byte
+
+  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + 1; // 47 short
+  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + 1 + 2; //short
+  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2; //short
+  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2 + 2; //short
+  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2 + 2 + 2; //short
+  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 1+ 47 + 2 + 2 + 2 + 2 + 2; //short
+  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + 1+ 2 + 2 + 2 + 2 + 2 + 2;
+
+  function determineDataLength(data) {
+    var data_length = 0;
+
+    if ('length' in data) {
+      data_length = data.length;
+    } else if ('width' in data && 'height' in data) {
+      data_length = data.width * data.height;
+    } else {
+      throw 'Unsupported input data format';
+    }
+
+    return data_length;
+  }
+
+  function copyInputData(data_offset, data) {
+    var HEAPU8 = new Uint8Array(HEAP);
+
+    if (data.data)
+      data = data.data;
+
+    if (data.buffer)
+      data = new Uint8Array(data.buffer);
+
+
+    var data_length = determineDataLength(data);
+
+    // TODO: avoid copying data to the heap.
+    for (var i = 0; i < data_length; i++)
+      HEAPU8[data_offset + i] = data[i];
+
+    return data_length;
+  }
+
+  ArithmeticDecoder.setup = function (data, start, end) {
+    var HEAPU8 = new Uint8Array(HEAP);
+    var HEAPU16 = new Uint16Array(HEAP);
+    copyInputData(offset_qetable, qeTable);
+    copyInputData(offset_nmps, nmps);
+    copyInputData(offset_nlps, nlps);
+    copyInputData(offset_switchFlag, switchFlag);
+    var data_length = copyInputData(offset_data, data);
+    ArithmeticDecoder.setInputDataLength(data_length);
+
+    HEAPU16[offset_bp >> 1] = start;
+    HEAPU16[offset_dataEnd >> 1] = end;
+
+    HEAPU16[offset_chigh >> 1] = data[start];
+    HEAPU16[offset_clow >> 1] = 0;
+
+    ArithmeticDecoder.byteIn();
+
+    HEAPU16[offset_chigh >> 1] = (((HEAPU16[offset_chigh >> 1] << 7) & 0xFFFF) | ((HEAPU16[offset_clow >> 1] >>> 9) & 0x7F));
+    HEAPU16[offset_clow >> 1] = ((HEAPU16[offset_clow >> 1] << 7) & 0xFFFF);
+
+    HEAPU16[offset_ct >> 1] -= 7;
+    HEAPU16[offset_a >> 1] =  0x8000;
+
+    return;
+  };
+
+  ArithmeticDecoder.createContext = function () {
+    var contexts = new Int8Array(HEAP, offset_context, 19);
+    for (var i = 0; i < 19; i++) {
+      contexts[i] = 0;
+    }
+    return contexts;
+  };
 })();
+
+// module.exports = ArithmeticDecoder;
