@@ -281,36 +281,37 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   var data_length = 0;
   var offset_context = 0;   // 19 byte
   var offset_qetable = 20;  // 47 short
-  var offset_nmps = 20 + 47 * 2; // 47 byte
-  var offset_nlps = 20 + 47 * 2 + 47; // 47 byte
-  var offset_switchFlag = 20 + 47 * 2 + 47 + 47; // 47 byte
+  var offset_nmps = 114; // 47 byte
+  var offset_nlps = 161; // 47 byte
+  var offset_switchFlag = 208; // 47 byte
 
-  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + (1); // 47 short
-  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2); //short -> long
-  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4; //short  -> long
-  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4; //short
-  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2; //short
-  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2; //short
-  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2 + 2;
+  var offset_bp = 256; // 47 short
+  var offset_chigh = 260; //short -> long
+  var offset_clow = 264; //short  -> long
+  var offset_ct = 268; //short
+  var offset_a = 270; //short
+  var offset_dataEnd = 272; //short
+  var offset_data = 274;
 
   function byteIn() {
     //var data = this.data;
     // var bp = this.bp;
-    if (HEAPU16[offset_bp >> 1] >= data_length) {
+    if ((HEAPU16[offset_bp >> 1]|0) >= (data_length|0)) {
       HEAPU32[offset_clow >> 2] = 0xFF00;
       HEAP16[offset_ct >> 1] = 8;
       return;
     }
-    if (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] === 0xFF) {
-      var b1 = HEAPU16[(offset_bp >> 1) + 1];
-      if (b1 > 0x8F) {
-        HEAPU32[offset_clow >> 2] += 0xFF00;
+    if (HEAPU8[((offset_data|0) + (HEAPU16[offset_bp >> 1]|0))|0]>>>0 == 0xFF>>>0) {
+      //var b1 = HEAPU16[(offset_bp >> 1) + 1];
+      //var b1 =
+      if ((HEAPU8[((offset_data | 0) + (HEAPU16[offset_bp >> 1] | 0) +1) | 0]|0) > 0x8F) {
+        HEAPU32[offset_clow >> 2] = HEAPU32[offset_clow >> 2] >>> 0 + 0xFF00 >>> 0;
         HEAP16[offset_ct >> 1] = 8;
 
       } else {
-        HEAPU16[offset_bp >> 1]++;
-        if (HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1]) {
-          HEAPU32[offset_clow >> 2] += (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 9) >>> 0;
+        HEAPU16[offset_bp >> 1] = (HEAPU16[offset_bp >> 1] | 0) + (1 | 0);
+        if ( (HEAPU16[offset_bp >> 1]|0) < (HEAPU16[offset_dataEnd >> 1]|0)) {
+          HEAPU32[offset_clow >> 2] = (HEAPU32[offset_clow >> 2]>>>0) +  ((HEAPU8[((offset_data|0) + (HEAPU16[offset_bp >> 1]|0)|0)]>>>0) << 9);
 
         }
         // clow += ((bp >= data.length ? 0 : data[bp]<< 9));
@@ -318,76 +319,81 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
 
       }
     } else {
-      HEAPU16[offset_bp >> 1]++;
-      HEAPU32[offset_clow >> 2] += HEAPU16[offset_bp >> 1] < HEAPU16[offset_dataEnd >> 1] ? (HEAPU8[offset_data + HEAPU16[offset_bp >> 1]] << 8) : 0xFF00;
+      HEAPU16[offset_bp >> 1] = (HEAPU16[offset_bp >> 1] | 0) + (1 | 0);
+      HEAPU32[offset_clow >> 2] = ((HEAPU32[offset_clow >> 2] | 0) + (HEAPU16[offset_bp >> 1] | 0) | 0) < (HEAPU16[offset_dataEnd >> 1]|0) ? (HEAPU8[((offset_data|0) + (HEAPU16[offset_bp >> 1]|0))|0] << 8) : 0xFF00;
       HEAP16[offset_ct >> 1] = 8;
 
     }
-    if (HEAPU32[offset_clow >> 2] > 0xFFFF) {
-      HEAPU32[offset_chigh >> 2] += (HEAPU32[offset_clow >> 2] >>> 16);
-      HEAPU32[offset_clow >> 2] &= 0xFFFF;
+    if ((HEAPU32[offset_clow >> 2]|0) > 0xFFFF) {
+      HEAPU32[offset_chigh >> 2] = (HEAPU32[offset_chigh >> 2]>>>0) +  (HEAPU32[offset_clow >> 2] >>> 16);
+      HEAPU32[offset_clow >> 2] = HEAPU32[offset_clow >> 2]|0 & 0xFFFF;
     }
   }
 
   function readBit(pos) {
-    var pos = pos | 0;
+    pos = pos | 0;
 
     // contexts are packed into 1 byte:
     // highest 7 bits carry cx.index, lowest bit carries cx.mps
-    var cx_index = HEAP8[offset_context + pos] >> 1;
-    var cx_mps = HEAP8[offset_context + pos] & 1;
-    // var qeTableIcx = QeTable[cx_index];
-    var qeIcx =  HEAPU16[(offset_qetable >> 1) + cx_index];
+    var cx_index = 0;
+    var cx_mps = 0;
+    var qeIcx = 0;
     var d = 0;
-    var tmp_a = HEAPU16[offset_a >> 1] - qeIcx;
+    var tmp_a= 0;
+    cx_index = (HEAP8[(offset_context + pos)|0] >> 1);
+    cx_mps = HEAP8[(offset_context + pos)|0] & 1;
+    // var qeTableIcx = QeTable[cx_index];
+    qeIcx = HEAPU16[((offset_qetable) + (((cx_index)*2)|0)|0) >> 1 ]|0;
+    d = 0;
+    tmp_a = ((HEAPU16[offset_a >> 1]|0) - (qeIcx|0))|0;
 
-    if (HEAPU32[offset_chigh >> 2] < qeIcx) {
+    if ((HEAPU32[offset_chigh >> 2]|0) < (qeIcx|0)) {
       // exchangeLps
-      if (tmp_a < qeIcx) {
+      if ((tmp_a|0) < (qeIcx|0)) {
         tmp_a = qeIcx;
         d = cx_mps;
-        cx_index = HEAPU8[offset_nmps + cx_index];
+        cx_index = HEAPU8[(offset_nmps + cx_index)|0]|0;
       } else {
         tmp_a = qeIcx;
         d = 1 ^ cx_mps;
-        if (HEAPU8[offset_switchFlag + cx_index] === 1) {
+        if ((HEAPU8[(offset_switchFlag + cx_index)|0]|0) == 1|0) {
           cx_mps = d;
         }
-        cx_index = HEAPU8[offset_nlps + cx_index];
+        cx_index = HEAPU8[(offset_nlps + cx_index)|0]|0;
       }
     } else {
-      HEAPU32[offset_chigh >> 2] -= qeIcx;
-      if ((tmp_a & 0x8000) !== 0) {
+      HEAPU32[offset_chigh >> 2] = ((HEAPU32[offset_chigh >> 2]|0) - (qeIcx|0))|0;
+      if ((tmp_a & 0x8000) != 0) {
         HEAPU16[offset_a >> 1] = tmp_a;
         return cx_mps | 0;
       }
       // exchangeMps
-      if (tmp_a < qeIcx) {
+      if ((tmp_a|0) < (qeIcx|0)) {
         d = 1 ^ cx_mps;
-        if (HEAPU8[offset_switchFlag + cx_index] === 1) {
+        if (HEAPU8[(offset_switchFlag + cx_index)|0]|0 == 1|0) {
           cx_mps = d;
         }
-        cx_index = HEAPU8[offset_nlps + cx_index];
+        cx_index = HEAPU8[(offset_nlps + cx_index)|0]|0;
       } else {
         d = cx_mps;
-        cx_index = HEAPU8[offset_nmps + cx_index];
+        cx_index = HEAPU8[(offset_nmps + cx_index)|0]|0;
       }
     }
     // C.3.3 renormD;
 
     do {
-      if (HEAP16[offset_ct >> 1] === 0) {
+      if ((HEAP16[offset_ct >> 1]|0) == (0|0)) {
         byteIn();
       }
 
-      tmp_a <<= 1;
+      tmp_a = tmp_a << 1;
       HEAPU32[offset_chigh >> 2] = (((HEAPU32[offset_chigh >> 2] << 1) & 0xFFFF) | ((HEAPU32[offset_clow >> 2] >>> 15) & 1));
       HEAPU32[offset_clow >> 2] = ((HEAPU32[offset_clow >> 2] << 1) & 0xFFFF);
-      HEAP16[offset_ct >> 1]--;
-    } while ((tmp_a & 0x8000) === 0);
+      HEAP16[offset_ct >> 1] = ((HEAP16[offset_ct >> 1]|0) -(1|0))|0;
+    } while ((tmp_a & 0x8000) == 0);
     HEAPU16[offset_a >> 1] = tmp_a;
 
-    HEAP8[offset_context+pos] = cx_index << 1 | cx_mps;
+    HEAP8[(offset_context+pos)|0] = (cx_index << 1 | cx_mps)|0;
     return d | 0;
   }
 
@@ -410,17 +416,17 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
   var data_length = 0;
   var offset_context = 0;   // 19 byte
   var offset_qetable = 20;  // 47 short
-  var offset_nmps = 20 + 47 * 2; // 47 byte
-  var offset_nlps = 20 + 47 * 2 + 47; // 47 byte
-  var offset_switchFlag = 20 + 47 * 2 + 47 + 47; // 47 byte
+  var offset_nmps = 114; // 47 byte
+  var offset_nlps = 161; // 47 byte
+  var offset_switchFlag = 208; // 47 byte
 
-  var offset_bp = 20 + 47 * 2 + 47 + 47 + 47 + (1); // 47 short
-  var offset_chigh = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2); //short -> long
-  var offset_clow = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4; //short  -> long
-  var offset_ct = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4; //short
-  var offset_a = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2; //short
-  var offset_dataEnd = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2; //short
-  var offset_data = 20 + 47 * 2 + 47 + 47 + 47 + (1) + 2 + (2) + 4 + 4 + 2 + 2 + 2;
+  var offset_bp = 256; // 47 short
+  var offset_chigh = 260; //short -> long
+  var offset_clow = 264; //short  -> long
+  var offset_ct = 268; //short
+  var offset_a = 270; //short
+  var offset_dataEnd = 272; //short
+  var offset_data = 274;
 
   function determineDataLength(data) {
     var data_length = 0;
@@ -455,16 +461,19 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
     return data_length;
   }
 
+  var initialized = false;
   ArithmeticDecoder.setup = function (data, start, end) {
     var HEAPU8 = new Uint8Array(HEAP);
     var HEAPU16 = new Uint16Array(HEAP);
     var HEAP16 = new Int16Array(HEAP);
     var HEAPU32 = new Uint32Array(HEAP);
-    copyInputData(offset_qetable, qeTable);
-    copyInputData(offset_nmps, nmps);
-    copyInputData(offset_nlps, nlps);
-    copyInputData(offset_switchFlag, switchFlag);
-
+    if (!initialized){
+      copyInputData(offset_qetable, qeTable);
+      copyInputData(offset_nmps, nmps);
+      copyInputData(offset_nlps, nlps);
+      copyInputData(offset_switchFlag, switchFlag);
+      initialized = true;
+    }
 
     var data_length = copyInputData(offset_data, data);
     ArithmeticDecoder.setInputDataLength(data_length);
