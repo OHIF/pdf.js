@@ -284,34 +284,34 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
 
 
   function byteIn() {
-    if ((bp >>> 0) >= (dataEnd >>> 0)) {
+    if ((bp | 0) >= (dataEnd | 0)) {
       clow = 0xFF00;
       ct = 8;
-      return;
+      return 0|0;
     }
 
-    if ((HEAPU8[((offset_data) + (bp|0))|0]|0) == 0xFF) {
-      if ((HEAPU8[((offset_data ) + (bp | 0) +1) | 0]|0) > 0x8F) {
-        clow = (clow + (0xFF00|0))|0;
+    if ((HEAPU8[((offset_data) + (bp))|0]|0) == 0xFF) {
+      if ((HEAPU8[((offset_data ) + (bp) +1) | 0]|0) > 0x8F) {
+        clow = (clow + (0xFF00))|0;
         ct = 8;
 
       } else {
         bp = (bp+1)|0;
         if ( (bp|0) < (dataEnd|0)) {
-          clow = ((clow) +  ((HEAPU8[((offset_data|0) + (bp|0)|0)]|0) << 9))|0;
+          clow = ((clow) +  ((HEAPU8[((offset_data) + (bp)|0)]|0) << 9))|0;
 
         }
         ct = 7;
 
       }
     } else {
-      bp = ((bp | 0) + 1) | 0;
-      clow = ((clow) + (bp| 0) | 0) < (dataEnd|0) ? (HEAPU8[((offset_data|0) + (bp|0))|0] << 8) : 0xFF00;
+      bp = (bp + 1) | 0;
+      clow = ((clow) + (bp) | 0) < (dataEnd|0) ? (HEAPU8[((offset_data) + (bp))|0] << 8) : 0xFF00;
       ct = 8;
 
     }
-    if ((clow>>>0) > (0xFFFF>>>0)) {
-      chigh = ((chigh | 0) + (clow >>> 16))|0;
+    if ((clow|0) > (0xFFFF|0)) {
+      chigh = ((chigh) + (clow >>> 16))|0;
       clow = clow & 0xFFFF;
     }
   }
@@ -331,9 +331,9 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
     // var qeTableIcx = QeTable[cx_index];
     qeIcx = HEAPU16[((offset_qetable) + (((cx_index)*2)|0)|0) >> 1 ]|0;
     d = 0;
-    tmp_a = ((a|0) - (qeIcx|0))|0;
+    tmp_a = ((a) - (qeIcx))|0;
 
-    if ((chigh >>> 0) < (qeIcx >>> 0)) {
+    if ((chigh|0) < (qeIcx|0)) {
       // exchangeLps
       if ((tmp_a|0) < (qeIcx|0)) {
         tmp_a = qeIcx;
@@ -348,7 +348,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
         cx_index = HEAPU8[(offset_nlps + cx_index)|0]|0;
       }
     } else {
-      chigh = ((chigh|0) - (qeIcx|0))|0;
+      chigh = ((chigh) - (qeIcx))|0;
       if ((tmp_a & 0x8000) != 0) {
         a = tmp_a;
         return cx_mps | 0;
@@ -375,7 +375,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
       tmp_a = tmp_a << 1;
       chigh = (((chigh << 1) & 0xFFFF) | ((clow >>> 15) & 1));
       clow = ((clow << 1) & 0xFFFF);
-      ct = ((ct|0) -(1|0))|0;
+      ct = ((ct) -(1))|0;
     } while ((tmp_a & 0x8000) == 0);
     a = tmp_a;
 
