@@ -263,7 +263,7 @@ var switchFlag = new Uint8Array([
   0]);
 
 var ArithmeticDecoder = (function (stdlib, foreign, heap) {
-  // "use asm";
+  "use asm";
   var HEAPU8 = new stdlib.Uint8Array(heap);
   var HEAP8 = new stdlib.Int8Array(heap);
   var HEAPU16 = new stdlib.Uint16Array(heap);
@@ -287,7 +287,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
     if ((bp | 0) >= (dataEnd | 0)) {
       clow = 0xFF00;
       ct = 8;
-      return 0|0;
+      return;
     }
 
     if ((HEAPU8[((offset_data) + (bp))|0]|0) == 0xFF) {
@@ -314,6 +314,7 @@ var ArithmeticDecoder = (function (stdlib, foreign, heap) {
       chigh = ((chigh) + (clow >>> 16))|0;
       clow = clow & 0xFFFF;
     }
+      return;
   }
 
   function readBit(pos) {
