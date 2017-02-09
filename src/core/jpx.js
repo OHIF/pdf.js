@@ -2267,3 +2267,5 @@ var JpxImage = (function JpxImageClosure() {
   return JpxImage;
 })();
 
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined')
+  module.exports = JpxImage;
