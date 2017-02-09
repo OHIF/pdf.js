@@ -1,3 +1,18 @@
+# asm.js test for arithmetic_decoder.js
+
+Average with 500 512x512px images:
+
+|    | Chrome | Firefox|
+|---:|---:|---:|
+|vanilla JS| 46 ms | 60 ms|
+|//'use asm'| 46 ms | 60 ms|
+|'use asm'| 46 ms | 87 ms|
+
+* //'use asm' means asm.js annotation, but 'use asm' commented  out.
+* 'use asm' means Firefox is happy and has compiled the JS AOT.
+
+**For some weird asm.js, once compile AOT, manage to be worst.**
+
 # PDF.js
 
 PDF.js is a Portable Document Format (PDF) viewer that is built with HTML5.
